@@ -1,0 +1,201 @@
+{% extends "music/base_music.html" %}
+{% load static %}
+
+{% block extra_head %}
+    <link rel="stylesheet" href="{% static "style_player.css" %}">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <meta property="og:title" content="{{ playlist.0.name }}" />
+    <meta property="og:site_name" content="akarpov.ru"/>
+    <meta property="og:description" content="by {{ playlist.0.artist }} listened {{ playlist.0.time_played }} times" />
+    <meta property="og:image" content="{{ playlist.0.image.url }}" />
+{% endblock %}
+
+{% block content %}
+   <img src="{{ playlist.0.image.url }}" id="background" />
+    <audio poster="{{ playlist.0.image.url }}" src="{{ playlist.0.track.url }}" style="transform: scale(0);" id="song" controls>
+    </audio>
+
+    <div class="container">
+        <div class="box">
+        </div>
+        <img src="{{ playlist.0.image.url }}" id="thumbnail" />
+
+        <img src="{% static "assets/icons/play.png" %}" onclick="playPause()" id="play-pause" />
+        <img src="{% static "assets/icons/forward.png" %}" onclick="nextSong()" id="next-song" />
+        <img src="{% static "assets/icons/backward.png" %}" onclick="previousSong()" id="previous-song" />
+
+        <div class="song-artist">{{ playlist.0.artist }}</div>
+        <div class="song-title">{{ playlist.0.name }}</div>
+        <div style="color: rgb(193, 255, 6); position: absolute; z-index: 4; bottom: 11%; left: 28%;">
+            <div class="played">{{ playlist.0.time_played }} <i class="bi bi-headphones"></i></div>
+        </div>
+        <div style="position: absolute; z-index: 5; bottom: 5%; right: 10%;">
+            <button onclick="copyLink()" class="btn btn-sm"><div class="shareButton"><i style="color: white;" class="bi bi-share-fill"></i></div></button>
+        </div>
+
+        <input
+            type="range"
+            id="progress-bar"
+            min="0"
+            max=""
+            value="0"
+            onchange="changeProgressBar()"
+        />
+        <div class="currentTime"></div>
+        <div class="durationTime"></div>
+    </div>
+
+    <script>
+    let playing = true;
+    const background = document.querySelector('#background'); // background derived from album cover below
+    const thumbnail = document.querySelector('#thumbnail'); // album cover
+    const song = document.querySelector('#song'); // audio object
+
+    const songArtist = document.querySelector('.song-artist'); // element where track artist appears
+    const songTitle = document.querySelector('.song-title'); // element where track title appears
+    const played = document.querySelector('.played');
+    const progressBar = document.querySelector('#progress-bar'); // element where progress bar appears
+    let pPause = document.querySelector('#play-pause'); // element where play and pause image appears
+    const ShareButton = document.querySelector('.shareButton');
+
+    const songs = [];
+    const thumbnails = [];
+    const songArtists = [];
+    const songTitles = [];
+    const songSlug = [];
+
+    {% for song in playlist %}
+        songs.push("{{ song.track.url }}");
+        thumbnails.push("{{ song.image.url }}");
+        songArtists.push("{{ song.artist }}");
+        songTitles.push("{{ song.name }}");
+        songSlug.push("{{ song.slug }}");
+    {% endfor %}
+
+    songIndex = 0;
+
+    function playPause() {
+        if (playing) {
+            const song = document.querySelector('#song'),
+            thumbnail = document.querySelector('#thumbnail');
+
+            pPause.src = "{% static "assets/icons/pause.png" %}"
+            thumbnail.style.transform = "scale(1.15)";
+
+            song.play();
+            playing = false;
+        } else {
+            pPause.src = "{% static "assets/icons/play.png" %}"
+            thumbnail.style.transform = "scale(1)"
+
+            song.pause();
+            playing = true;
+        }
+    }
+
+    song.addEventListener('ended', function(){
+        nextSong();
+    });
+
+    function nextSong() {
+        songIndex++;
+        if (songIndex >= songs.length) {
+            songIndex = 0;
+        }
+        song.src = songs[songIndex];
+        song.poster = thumbnails[songIndex];
+        thumbnail.src = thumbnails[songIndex];
+        background.src = thumbnails[songIndex];
+
+        songArtist.innerHTML = songArtists[songIndex];
+        songTitle.innerHTML = songTitles[songIndex];
+
+        playing = true;
+        $.ajax({
+          type: 'POST',
+          url: "{% url 'listen_tracker' %}",
+            data: {
+                'track': songTitles[songIndex],
+            },
+            success: function(data){
+                played.innerHTML = data.played + " <i class='bi bi-headphones'></i>";
+            }
+      });
+        playPause();
+    }
+
+    function previousSong() {
+        songIndex--;
+        if (songIndex < 0) {
+            songIndex = songs.length - 1;
+        }
+        song.src = songs[songIndex];
+        song.poster = thumbnails[songIndex];
+        thumbnail.src = thumbnails[songIndex];
+        background.src = thumbnails[songIndex];
+
+        songArtist.innerHTML = songArtists[songIndex];
+        songTitle.innerHTML = songTitles[songIndex];
+
+        playing = true;
+        $.ajax({
+          type: 'POST',
+          url: "{% url 'listen_tracker' %}",
+            data: {
+                'track': songTitles[songIndex],
+            },
+            success: function(data){
+                played.innerHTML = data.played + " <i class='bi bi-headphones'></i>";
+            }
+      });
+    playPause();
+    }
+
+    function updateProgressValue() {
+        progressBar.max = song.duration;
+        progressBar.value = song.currentTime;
+        document.querySelector('.currentTime').innerHTML = (formatTime(Math.floor(song.currentTime)));
+        if (document.querySelector('.durationTime').innerHTML === "Nan:Nan") {
+            document.querySelector('.durationTime').innerHTML = "0:00";
+        } else {
+            document.querySelector('.durationTime').innerHTML = (formatTime(Math.floor(song.duration)));
+        }
+    }
+
+    function formatTime(seconds) {
+        let min = Math.floor((seconds / 60));
+        let sec = Math.floor(seconds - (min * 60));
+        if (sec < 10){
+            sec  = `0${sec}`;
+        }
+        return `${min}:${sec}`;
+    }
+
+    setInterval(updateProgressValue, 500);
+
+    function changeProgressBar() {
+        song.currentTime = progressBar.value;
+    }
+    function copyLink() {
+        let text = window.location.origin + "/music/song/" + songSlug[songIndex];
+        navigator.clipboard.writeText(text).then(function() {
+          console.log('Async: Copying to clipboard was successful!');
+        }, function(err) {
+          console.error('Async: Could not copy text: ', err);
+        });
+        ShareButton.innerHTML = "<i style='color: white;' class='bi bi-check2'></i>";
+        setTimeout(function(){ ShareButton.innerHTML = "<i style='color: white;' class='bi bi-share-fill'></i>"; }, 1000);
+    }
+
+    song.onplaying = function () {
+        pPause.src = "{% static "assets/icons/pause.png" %}"
+        thumbnail.style.transform = "scale(1.15)";
+        playing = false;
+    }
+    song.onpause = function () {
+        pPause.src = "{% static "assets/icons/play.png" %}"
+        thumbnail.style.transform = "scale(1)"
+        playing = true;
+    }
+    </script>
+{% endblock %}

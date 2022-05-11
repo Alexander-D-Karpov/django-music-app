@@ -1,0 +1,18 @@
+{% extends "music/base_music.html" %}
+
+{% block content %}
+<div class="row">
+  <div class="col-sm-6">
+      {% for room in rooms %}
+    <div class="card m-2" style="width: 30rem;">
+      <div class="card-body">
+        <h5 class="card-title">{{ room.name }}</h5>
+          <p class="card-text">Admin: <a href="{% url "profile" room.creator.username %}">{{ room.creator.username }}</a>.</p>
+          <p>Amount of tracks: {{ room.get_songs_count }}</p>
+        <a href="{{ room.slug }}" class="btn btn-success">Enter</a>
+      </div>
+    </div>
+      {% endfor %}
+  </div>
+</div>
+{% endblock %}

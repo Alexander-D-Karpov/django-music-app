@@ -1,0 +1,16 @@
+{% extends "music/base_music.html" %}
+
+{% block content %}
+    {% if user.is_superuser %}
+    <form class="was-validated m-4" method="post"
+          enctype="multipart/form-data">
+        {% csrf_token %}
+        <label for="file" class="form-label">File</label>
+        {{ form }}
+        <br>
+        <div class="mb-3">
+            <button class="btn btn-success" type="submit">Submit file</button>
+        </div>
+    </form>
+    {% endif %}
+{% endblock %}
